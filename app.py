@@ -10,6 +10,11 @@ from reportlab.lib import colors
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Namaste Translate Certificate Generator", page_icon="📄", layout="centered")
+# 2. THE SECURITY LOCK GOES EXACTLY HERE
+if st.query_params.get("access") != "namaste":
+    st.error("🔒 Access Denied / アクセス拒否")
+    st.warning("Please use the official link provided to access this tool. / このツールにアクセスするには、提供された公式リンクを使用してください。")
+    st.stop()  # This completely stops the rest of the page from loading!
 
 st.title("📄 Birth Certificate Generator")
 st.markdown("Fill out the details below to instantly generate your formatted PDF certificate. / 以下の詳細を入力して、PDF証明書を作成してください。")
@@ -156,4 +161,5 @@ if submitted:
             data=pdf_buffer,
             file_name=file_name,
             mime="application/pdf"
+
         )
