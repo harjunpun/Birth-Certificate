@@ -16,6 +16,15 @@ if st.query_params.get("access") != "namaste":
     st.error("🔒 Access Denied / アクセス拒否")
     st.warning("Please use the official link provided to access this tool. / このツールにアクセスするには、提供された公式リンクを使用してください。")
     st.stop()
+    # --- HIDE STREAMLIT MENU & GITHUB ICON ---
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+header {visibility: hidden;}
+footer {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # 3. APP HEADER
 st.title("📄 Birth Certificate Generator")
@@ -175,3 +184,4 @@ if st.button("Generate PDF / PDFを作成", type="primary"):
             file_name=file_name,
             mime="application/pdf"
         )
+
