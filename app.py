@@ -8,18 +8,20 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib import colors
 
-# --- PAGE CONFIGURATION ---
+# 1. PAGE CONFIGURATION
 st.set_page_config(page_title="Namaste Translate Certificate Generator", page_icon="📄", layout="centered")
-# 2. THE SECURITY LOCK GOES EXACTLY HERE
+
+# 2. SECURITY LOCK
 if st.query_params.get("access") != "namaste":
     st.error("🔒 Access Denied / アクセス拒否")
     st.warning("Please use the official link provided to access this tool. / このツールにアクセスするには、提供された公式リンクを使用してください。")
-    st.stop()  # This completely stops the rest of the page from loading!
+    st.stop()
 
+# 3. APP HEADER
 st.title("📄 Birth Certificate Generator")
 st.markdown("Fill out the details below to instantly generate your formatted PDF certificate. / 以下の詳細を入力して、PDF証明書を作成してください。")
 
-# Define the input fields
+# Define the input fields 
 INPUT_FIELDS = [
     "Issued Place (発行地)", "Registration No. (登録番号)", "Registration Date (登録日)", 
     "Full Name (氏名)", "Date of Birth (生年月日)", "Gender (性別)", 
@@ -27,22 +29,19 @@ INPUT_FIELDS = [
     "Father's Name (父親の氏名)", "Father's ID/Passport (父親の身分証明書番号)", 
     "Mother's Name (母親の氏名)", "Mother's ID/Passport (母親の身分証明書番号)", 
     "Informant Name (情報提供者の氏名)", "Informant ID/Passport (情報提供者の身分証明書番号)", 
-    "Address in Japan (日本での住所)"
+    "Translator Name (翻訳者の氏名)", "Address in Japan (日本での住所)"
 ]
 
 def load_font():
-    """Loads the Japanese font from the app folder."""
-    # Ensure you upload 'msgothic.ttc' to your web server in the same folder as this script!
     font_path = "msgothic.ttc" 
     try:
         pdfmetrics.registerFont(TTFont('JapaneseFont', font_path, subfontIndex=0))
         return 'JapaneseFont'
     except Exception as e:
-        st.error(f"⚠️ Font Error: Could not load '{font_path}'. Please ensure the font file is uploaded to the server. Defaulting to standard font (Japanese text may break).")
+        st.error(f"⚠️ Font Error: Could not load '{font_path}'. Please ensure the font file is uploaded to the server.")
         return 'Helvetica'
 
 def generate_pdf(data):
-    """Generates the PDF in memory and returns it as a bytes buffer."""
     buffer = io.BytesIO()
     font_name = load_font()
 
@@ -110,7 +109,7 @@ def generate_pdf(data):
 
     # --- TABLE 2: TRANSLATOR DATA ---
     translator_table_data = [
-        [P("翻訳者<br/>(Translator)"), "", P(data["Full Name (氏名)"])],
+        [P("翻訳者<br/>(Translator)"), "", P(data["Translator Name (翻訳者の氏名)"])],
         [P("日本の住所<br/>(Address in Japan)"), "", P(data["Address in Japan (日本での住所)"])]
     ]
 
@@ -131,20 +130,34 @@ def generate_pdf(data):
     buffer.seek(0)
     return buffer
 
-# --- WEB FORM ---
-with st.form("certificate_form"):
-    user_data = {}
-    
-    for field in INPUT_FIELDS:
-        if field == "Gender (性別)":
-            user_data[field] = st.selectbox(field, ["Male", "Female", "Third Gender"])
+# --- DYNAMIC WEB UI ---
+user_data = {}
+
+for field in INPUT_FIELDS:
+    if field == "Gender (性別)":
+        user_data[field] = st.selectbox(field, ["Male (男性)", "Female (女性)", "Third Gender (その他)"])
+        
+    elif field == "Translator Name (翻訳者の氏名)":
+        # Check what the user typed in the "Full Name" box
+        full_name_entered = user_data.get("Full Name (氏名)", "").strip()
+        
+        # Give them the choice between the auto-filled name or "Other"
+        display_name = full_name_entered if full_name_entered else "Same as Full Name (氏名と同じ)"
+        translator_choice = st.selectbox(field, [display_name, "Other (手動入力)"])
+        
+        # If they pick "Other", show a new text box so they can type the spouse's name
+        if translator_choice == "Other (手動入力)":
+            user_data[field] = st.text_input("Enter the Translator's Full Name / 翻訳者の氏名を入力してください")
         else:
-            user_data[field] = st.text_input(field)
+            user_data[field] = full_name_entered
+            
+    else:
+        user_data[field] = st.text_input(field)
 
-    submitted = st.form_submit_button("Generate PDF / PDFを作成")
+st.write("---")
 
-if submitted:
-    # Check if a name was entered to name the file
+# Only generate the PDF when they are completely ready
+if st.button("Generate PDF / PDFを作成", type="primary"):
     client_name = user_data["Full Name (氏名)"]
     if not client_name:
         client_name = "Client"
@@ -161,5 +174,4 @@ if submitted:
             data=pdf_buffer,
             file_name=file_name,
             mime="application/pdf"
-
         )
