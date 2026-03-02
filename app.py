@@ -27,7 +27,7 @@ footer {visibility: hidden;}
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # 3. APP HEADER
-st.title("📄 Birth Certificate(出生証明書)")
+st.title("📄 Birth Certificate Generator")
 st.markdown("Fill out the details below to instantly generate your formatted PDF certificate. / 以下の詳細を入力して、PDF証明書を作成してください。")
 st.write("---")
 
