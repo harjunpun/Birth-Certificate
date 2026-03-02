@@ -11,12 +11,12 @@ from reportlab.lib import colors
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="Namaste Translate Certificate Generator", page_icon="📄", layout="centered")
 
-# 2. SECURITY LOCK
+# 2. SECURITY LOCK & STEALTH MODE
 if st.query_params.get("access") != "namaste":
     st.error("🔒 Access Denied / アクセス拒否")
     st.warning("Please use the official link provided to access this tool. / このツールにアクセスするには、提供された公式リンクを使用してください。")
     st.stop()
-    # --- HIDE STREAMLIT MENU & GITHUB ICON ---
+    
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -29,17 +29,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # 3. APP HEADER
 st.title("📄 Birth Certificate(出生証明書)")
 st.markdown("Fill out the details below to instantly generate your formatted PDF certificate. / 以下の詳細を入力して、PDF証明書を作成してください。")
-
-# Define the input fields 
-INPUT_FIELDS = [
-    "Issued Place (発行地)", "Registration No. (登録番号)", "Registration Date (登録日)", 
-    "Full Name (氏名)", "Date of Birth (生年月日)", "Gender (性別)", 
-    "Permanent Address (永住住所)", "Birth Place (出生地)", 
-    "Father's Name (父親の氏名)", "Father's ID/Passport (父親の身分証明書番号)", 
-    "Mother's Name (母親の氏名)", "Mother's ID/Passport (母親の身分証明書番号)", 
-    "Informant Name (情報提供者の氏名)", "Informant ID/Passport (情報提供者の身分証明書番号)", 
-    "Translator Name (翻訳者の氏名)", "Address in Japan (日本での住所)"
-]
+st.write("---")
 
 def load_font():
     font_path = "msgothic.ttc" 
@@ -139,38 +129,103 @@ def generate_pdf(data):
     buffer.seek(0)
     return buffer
 
-# --- DYNAMIC WEB UI ---
-user_data = {}
+# --- DATE LISTS ---
+years = ["Year"] + [str(y) for y in range(2040, 1920, -1)]
+months = ["Month"] + [str(m).zfill(2) for m in range(1, 13)]
+days = ["Day"] + [str(d).zfill(2) for d in range(1, 32)]
 
-for field in INPUT_FIELDS:
-    if field == "Gender (性別)":
-        user_data[field] = st.selectbox(field, ["Male (男性)", "Female (女性)", "Third Gender (その他)"])
-        
-    elif field == "Translator Name (翻訳者の氏名)":
-        # Check what the user typed in the "Full Name" box
-        full_name_entered = user_data.get("Full Name (氏名)", "").strip()
-        
-        # Give them the choice between the auto-filled name or "Other"
-        display_name = full_name_entered if full_name_entered else "Same as Full Name (氏名と同じ)"
-        translator_choice = st.selectbox(field, [display_name, "Other (手動入力)"])
-        
-        # If they pick "Other", show a new text box so they can type the spouse's name
-        if translator_choice == "Other (手動入力)":
-            user_data[field] = st.text_input("Enter the Translator's Full Name / 翻訳者の氏名を入力してください")
-        else:
-            user_data[field] = full_name_entered
-            
-    else:
-        user_data[field] = st.text_input(field)
+# --- UI FORM ---
+issued_place = st.text_input("Issued Place (発行地)", placeholder="eg.ネパール・ガンダキ州カスキ郡ポカラ市役所（第33区）")
+reg_no = st.text_input("Registration No. (登録番号)")
+
+st.write("Registration Date (登録日)")
+col1, col2, col3 = st.columns(3)
+reg_y = col1.selectbox("年 (Year)", years, key="ry")
+reg_m = col2.selectbox("月 (Month)", months, key="rm")
+reg_d = col3.selectbox("日 (Day)", days, key="rd")
+reg_date = f"{reg_y}-{reg_m}-{reg_d}" if "Year" not in reg_y and "Month" not in reg_m and "Day" not in reg_d else ""
+
+full_name = st.text_input("Full Name (氏名)", placeholder="eg.プン，アルズン マガル")
+
+st.write("Date of Birth (生年月日)")
+col4, col5, col6 = st.columns(3)
+dob_y = col4.selectbox("年 (Year)", years, key="dy")
+dob_m = col5.selectbox("月 (Month)", months, key="dm")
+dob_d = col6.selectbox("日 (Day)", days, key="dd")
+dob_date = f"{dob_y}-{dob_m}-{dob_d}" if "Year" not in dob_y and "Month" not in dob_m and "Day" not in dob_d else ""
+
+gender = st.selectbox("Gender (性別)", ["Male (男性)", "Female (女性)", "Third Gender (その他)"])
+address = st.text_input("Permanent Address (永住住所)")
+birth_place = st.text_input("Birth Place (出生地)")
+
+f_name = st.text_input("Father's Name (父親の氏名)")
+f_id = st.text_input("Father's ID/Passport (父親の身分証明書番号)")
+
+m_name = st.text_input("Mother's Name (母親の氏名)")
+m_id = st.text_input("Mother's ID/Passport (母親の身分証明書番号)")
 
 st.write("---")
 
-# Only generate the PDF when they are completely ready
-if st.button("Generate PDF / PDFを作成", type="primary"):
-    client_name = user_data["Full Name (氏名)"]
-    if not client_name:
-        client_name = "Client"
+# --- SMART INFORMANT LOGIC ---
+informant_options = []
+if f_name: informant_options.append(f_name)
+if m_name: informant_options.append(m_name)
+if full_name: informant_options.append(full_name)
+informant_options.append("Other (手動入力)")
 
+informant_choice = st.selectbox("Informant Name (情報提供者の氏名)", informant_options)
+
+# Auto-fill ID Logic based on choice
+if informant_choice == "Other (手動入力)":
+    informant_name = st.text_input("Enter the Informant's Full Name / 情報提供者の氏名を入力してください")
+    default_inf_id = ""
+else:
+    informant_name = informant_choice
+    if informant_choice == f_name and f_name != "":
+        default_inf_id = f_id
+    elif informant_choice == m_name and m_name != "":
+        default_inf_id = m_id
+    else:
+        default_inf_id = "" # Clear ID if "Full Name" is chosen
+
+informant_id = st.text_input("Informant ID/Passport (情報提供者の身分証明書番号)", value=default_inf_id)
+
+# --- SMART TRANSLATOR LOGIC ---
+display_name = full_name if full_name else "Same as Full Name (氏名と同じ)"
+translator_choice = st.selectbox("Translator Name (翻訳者の氏名)", [display_name, "Other (手動入力)"])
+
+if translator_choice == "Other (手動入力)":
+    translator_name = st.text_input("Enter the Translator's Full Name / 翻訳者の氏名を入力してください")
+else:
+    translator_name = full_name
+
+address_japan = st.text_input("Address in Japan (日本での住所)")
+
+st.write("---")
+
+# --- GENERATE PDF BUTTON ---
+if st.button("Generate PDF / PDFを作成", type="primary"):
+    # Compile all data into the dictionary format expected by the PDF function
+    user_data = {
+        "Issued Place (発行地)": issued_place,
+        "Registration No. (登録番号)": reg_no,
+        "Registration Date (登録日)": reg_date,
+        "Full Name (氏名)": full_name,
+        "Date of Birth (生年月日)": dob_date,
+        "Gender (性別)": gender,
+        "Permanent Address (永住住所)": address,
+        "Birth Place (出生地)": birth_place,
+        "Father's Name (父親の氏名)": f_name,
+        "Father's ID/Passport (父親の身分証明書番号)": f_id,
+        "Mother's Name (母親の氏名)": m_name,
+        "Mother's ID/Passport (母親の身分証明書番号)": m_id,
+        "Informant Name (情報提供者の氏名)": informant_name,
+        "Informant ID/Passport (情報提供者の身分証明書番号)": informant_id,
+        "Translator Name (翻訳者の氏名)": translator_name,
+        "Address in Japan (日本での住所)": address_japan
+    }
+
+    client_name = full_name if full_name else "Client"
     file_name = f"Birth_Certificate_{client_name}.pdf"
     
     with st.spinner("Generating document... / ドキュメントを作成中..."):
@@ -184,5 +239,3 @@ if st.button("Generate PDF / PDFを作成", type="primary"):
             file_name=file_name,
             mime="application/pdf"
         )
-
-
