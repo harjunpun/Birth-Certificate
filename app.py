@@ -9,7 +9,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib import colors
 
 # 1. PAGE CONFIGURATION
-st.set_page_config(page_title="Namaste Translate Certificate Generator", page_icon="📄", layout="centered")
+st.set_page_config(page_title="Birth certificate(出生証明書)", page_icon="📄", layout="centered")
 
 # 2. SECURITY LOCK & STEALTH MODE
 if st.query_params.get("access") != "namaste":
@@ -239,3 +239,4 @@ if st.button("Generate PDF / PDFを作成", type="primary"):
             file_name=file_name,
             mime="application/pdf"
         )
+
